@@ -34,17 +34,18 @@ pip install -r requirements.txt
 ```
 
 # Usage
-tfind [--readability[=COLOR] | -r] <logfile> <start> <end>
+`tfind [--readability[=COLOR] | -r] <logfile> <start> <end>`
+
 Examples:
 
 ## Find all log lines between 13:23:00.000 and 13:23:30.000
-tfind app.log 13:23:00.000 13:23:30.000
+`tfind app.log 13:23:00.000 13:23:30.000`
 
 ## Same, but color the timestamps in yellow
-tfind -r=yellow app.log 13:23:00.000 13:23:30.000
+`tfind -r=yellow app.log 13:23:00.000 13:23:30.000`
 
 ## Using full date-time strings
-tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"
+`tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"`
 
 # Performance
 tfind uses a binary search over the log file to jump directly to the start time, so it avoids scanning the entire file. On multi-gigabyte logs, this can reduce lookup time from minutes to seconds.
