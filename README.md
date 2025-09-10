@@ -19,7 +19,6 @@
 ---
 
 ## Installation
-
 ```bash
 # Clone the repo
 git clone https://github.com/yourusername/tfind.git
@@ -46,6 +45,3 @@ Examples:
 
 ## Using full date-time strings
 `tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"`
-
-# Performance
-tfind uses a binary search over the log file to jump directly to the start time, so it avoids scanning the entire file. On multi-gigabyte logs, this can reduce lookup time from minutes to seconds.
