@@ -1,2 +1,4 @@
 *.fix
 output
+generators/
+logs/
