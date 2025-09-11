@@ -21,7 +21,7 @@
 ## Installation
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/tfind.git
+git clone https://github.com/domgalati/tfind.git
 cd tfind
 
 # (Optional) Install in an isolated environment
