@@ -1,7 +1,7 @@
 import sys
 import re
 import os
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, date
 from typing import Optional, Pattern, List
 
 # ---- Optional dependency: dateutil -------------------------------------------------
@@ -32,31 +32,6 @@ def colorize(text: str, color: str) -> str:
 EPOCH_RE = re.compile(r"^\d{10}(?:\d{3})?$")
 TIME_CORE_RE = re.compile(r"\d{1,2}:\d{2}:\d{2}(?:\.\d{1,6})?")
 MONTH_RE = re.compile(r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*", re.I)
-INPUT_ORDER_VALUES = {"auto", "sorted", "unsorted"}
-
-
-def parse_timezone_value(value: str) -> Optional[timezone]:
-    v = value.strip()
-    if v.upper() in {"UTC", "Z"}:
-        return timezone.utc
-    m = re.fullmatch(r"([+-])(\d{2}):?(\d{2})", v)
-    if not m:
-        return None
-    sign = 1 if m.group(1) == "+" else -1
-    hours = int(m.group(2))
-    mins = int(m.group(3))
-    if hours > 23 or mins > 59:
-        return None
-    delta = timedelta(hours=hours, minutes=mins)
-    return timezone(sign * delta)
-
-
-def normalize_datetime(dt: datetime, default_tz: Optional[timezone]) -> datetime:
-    if dt.tzinfo is None:
-        if default_tz is None:
-            return dt
-        dt = dt.replace(tzinfo=default_tz)
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 def parse_epoch(value: str) -> Optional[datetime]:
     if not EPOCH_RE.match(value):
@@ -69,19 +44,14 @@ def parse_epoch(value: str) -> Optional[datetime]:
     except Exception:
         return None
 
-def parse_user_datetime(value: str, strptime_format: Optional[str] = None, default_tz: Optional[timezone] = None) -> Optional[datetime]:
-    if strptime_format is not None:
-        try:
-            return normalize_datetime(datetime.strptime(value, strptime_format), default_tz)
-        except Exception:
-            return None
+def parse_user_datetime(value: str) -> Optional[datetime]:
     dt = parse_epoch(value)
     if dt is not None:
-        return normalize_datetime(dt, default_tz)
+        return dt
     if dateutil_parser is None:
         return None
     try:
-        return normalize_datetime(dateutil_parser.parse(value), default_tz)
+        return dateutil_parser.parse(value)
     except Exception:
         return None
 
@@ -152,21 +122,10 @@ class Extractor:
             return line
         return None
 
-def parse_line_timestamp(
-    ts_text: str,
-    date_anchor: Optional[date],
-    strptime_format: Optional[str] = None,
-    default_tz: Optional[timezone] = None
-) -> Optional[datetime]:
-    if strptime_format is not None:
-        try:
-            dt = datetime.strptime(ts_text, strptime_format)
-            return normalize_datetime(dt, default_tz)
-        except Exception:
-            return None
+def parse_line_timestamp(ts_text: str, date_anchor: Optional[date]) -> Optional[datetime]:
     dt = parse_epoch(ts_text)
     if dt is not None:
-        return normalize_datetime(dt, default_tz)
+        return dt
     if dateutil_parser is None:
         return None
     try:
@@ -179,20 +138,15 @@ def parse_line_timestamp(
         and MONTH_RE.search(ts_text) is None
     )
     if lacks_date and date_anchor is not None:
-        dt = datetime.combine(date_anchor, dt.time())
-    return normalize_datetime(dt, default_tz)
+        return datetime.combine(date_anchor, dt.time())
+    return dt
 
 def file_size(path: str) -> int:
     with open(path, 'rb') as f:
         f.seek(0, 2)
         return f.tell()
 
-def find_first_date_anchor(
-    path: str,
-    extractor: Extractor,
-    strptime_format: Optional[str] = None,
-    default_tz: Optional[timezone] = None
-) -> Optional[date]:
+def find_first_date_anchor(path: str, extractor: Extractor) -> Optional[date]:
     try:
         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
             for _ in range(2000):
@@ -202,21 +156,14 @@ def find_first_date_anchor(
                 ts_text = extractor.extract(line)
                 if not ts_text:
                     continue
-                dt = parse_line_timestamp(ts_text, None, strptime_format, default_tz)
+                dt = parse_line_timestamp(ts_text, None)
                 if dt:
                     return dt.date()
     except Exception:
         return None
     return None
 
-def binary_search_start(
-    path: str,
-    target: datetime,
-    extractor: Extractor,
-    date_anchor: Optional[date],
-    strptime_format: Optional[str] = None,
-    default_tz: Optional[timezone] = None
-) -> int:
+def binary_search_start(path: str, target: datetime, extractor: Extractor, date_anchor: Optional[date]) -> int:
     low = 0
     hi = file_size(path)
     with open(path, 'rb') as f:
@@ -233,60 +180,38 @@ def binary_search_start(
             except Exception:
                 s = line.decode('latin1', errors='ignore')
             ts_text = extractor.extract(s)
-            ts = parse_line_timestamp(ts_text, date_anchor, strptime_format, default_tz) if ts_text else None
+            ts = parse_line_timestamp(ts_text, date_anchor) if ts_text else None
             if ts is None or ts < target:
                 low = pos + 1
             else:
                 hi = mid
     return low
 
-def print_range(
-    path: str,
-    start_s: str,
-    end_s: str,
-    readability: bool = False,
-    color: str = "cyan",
-    timestamp_format: Optional[str] = None,
-    timestamp_regex: Optional[str] = None,
-    default_tz: Optional[timezone] = None,
-    input_order: str = "auto"
-) -> None:
-    start_dt = parse_user_datetime(start_s, timestamp_format, default_tz)
-    end_dt = parse_user_datetime(end_s, timestamp_format, default_tz)
+def print_range(path: str, start_s: str, end_s: str, readability: bool = False, color: str = "cyan") -> None:
+    start_dt = parse_user_datetime(start_s)
+    end_dt = parse_user_datetime(end_s)
     if not start_dt or not end_dt:
         sys.exit("Error: could not parse <start> or <end>.")
     if end_dt < start_dt:
         start_dt, end_dt = end_dt, start_dt
     user_pat = None
-    if timestamp_regex:
-        try:
-            user_pat = re.compile(timestamp_regex)
-            if user_pat.groups < 1:
-                sys.exit("Error: --timestamp-regex must include at least one capture group.")
-        except re.error as exc:
-            sys.exit(f"Error: invalid --timestamp-regex: {exc}")
-    else:
-        try:
-            if not input_is_time_only(start_s) or not input_is_time_only(end_s):
-                exemplar = start_s if not input_is_time_only(start_s) else end_s
-                user_pat = build_regex_from_example(exemplar)
-            else:
-                user_pat = build_regex_from_example(start_s)
-        except Exception:
-            user_pat = None
+    try:
+        if not input_is_time_only(start_s) or not input_is_time_only(end_s):
+            exemplar = start_s if not input_is_time_only(start_s) else end_s
+            user_pat = build_regex_from_example(exemplar)
+        else:
+            user_pat = build_regex_from_example(start_s)
+    except Exception:
+        user_pat = None
     extractor = Extractor(user_pat)
     need_anchor = input_is_time_only(start_s) or input_is_time_only(end_s)
-    date_anchor = find_first_date_anchor(path, extractor, timestamp_format, default_tz) if need_anchor else None
+    date_anchor = find_first_date_anchor(path, extractor) if need_anchor else None
     if need_anchor and date_anchor is not None:
         if input_is_time_only(start_s):
-            start_dt = normalize_datetime(datetime.combine(date_anchor, start_dt.time()), default_tz)
+            start_dt = datetime.combine(date_anchor, start_dt.time())
         if input_is_time_only(end_s):
-            end_dt = normalize_datetime(datetime.combine(date_anchor, end_dt.time()), default_tz)
-    if input_order not in INPUT_ORDER_VALUES:
-        sys.exit("Error: --input-order must be one of: auto, sorted, unsorted.")
-    start_pos = 0
-    if input_order != "unsorted":
-        start_pos = binary_search_start(path, start_dt, extractor, date_anchor, timestamp_format, default_tz)
+            end_dt = datetime.combine(date_anchor, end_dt.time())
+    start_pos = binary_search_start(path, start_dt, extractor, date_anchor)
     do_color = readability and ansi_enabled()
     with open(path, 'rb') as f:
         f.seek(start_pos)
@@ -298,10 +223,10 @@ def print_range(
             ts_text = extractor.extract(line)
             if not ts_text:
                 continue
-            ts = parse_line_timestamp(ts_text, date_anchor, timestamp_format, default_tz)
+            ts = parse_line_timestamp(ts_text, date_anchor)
             if ts is None:
                 continue
-            if ts > end_dt and input_order != "unsorted":
+            if ts > end_dt:
                 break
             if start_dt <= ts <= end_dt:
                 if do_color and ts_text:
@@ -313,10 +238,6 @@ def main(argv: Optional[List[str]] = None) -> None:
         argv = sys.argv
     readability = False
     color = "cyan"
-    timestamp_format = None
-    timestamp_regex = None
-    default_tz = None
-    input_order = "auto"
     args = []
     for a in argv[1:]:
         if a == "-r" or a == "--readability":
@@ -324,38 +245,13 @@ def main(argv: Optional[List[str]] = None) -> None:
         elif a.startswith("--readability="):
             readability = True
             color = a.split("=", 1)[1]
-        elif a.startswith("--timestamp-format="):
-            timestamp_format = a.split("=", 1)[1]
-        elif a.startswith("--timestamp-regex="):
-            timestamp_regex = a.split("=", 1)[1]
-        elif a.startswith("--timezone="):
-            tz_value = a.split("=", 1)[1]
-            default_tz = parse_timezone_value(tz_value)
-            if default_tz is None:
-                sys.exit("Error: invalid --timezone. Use UTC, Z, +HH:MM, -HH:MM, +HHMM, or -HHMM.")
-        elif a.startswith("--input-order="):
-            input_order = a.split("=", 1)[1].strip().lower()
         else:
             args.append(a)
     if len(args) < 3:
-        print(
-            "Usage: tfind [--readability[=COLOR] | -r] [--timestamp-format=FMT] "
-            "[--timestamp-regex=REGEX] [--timezone=TZ] [--input-order=auto|sorted|unsorted] "
-            "<logfile> <start> <end>"
-        )
+        print("Usage: tfind [--readability[=COLOR] | -r] <logfile> <start> <end>")
         sys.exit(1)
     path, start_s, end_s = args
-    print_range(
-        path,
-        start_s,
-        end_s,
-        readability,
-        color,
-        timestamp_format,
-        timestamp_regex,
-        default_tz,
-        input_order
-    )
+    print_range(path, start_s, end_s, readability, color)
 
 if __name__ == "__main__":
     main()

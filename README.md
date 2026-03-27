@@ -20,20 +20,25 @@
 
 ## Installation
 ```bash
-# Clone the repo
 git clone https://github.com/domgalati/tfind.git
 cd tfind
-
-# (Optional) Install in an isolated environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+pip install .
 ```
 
-# Usage
-`tfind [--readability[=COLOR] | -r] <logfile> <start> <end>`
+For local development/editable installs:
+```bash
+pip install -e .
+```
+
+## Usage
+`tfind [--readability[=COLOR] | -r] [--timestamp-format=FMT] [--timestamp-regex=REGEX] [--timezone=TZ] [--input-order=auto|sorted|unsorted] <logfile> <start> <end>`
+
+Options:
+
+- `--timestamp-format=FMT` - force parsing with a Python `strptime` format
+- `--timestamp-regex=REGEX` - force extraction using a regex with at least one capture group
+- `--timezone=TZ` - default timezone for naive timestamps (`UTC`, `Z`, `+HH:MM`, `-HHMM`)
+- `--input-order=...` - `auto`/`sorted` uses binary-search start, `unsorted` scans from beginning
 
 Examples:
 
@@ -45,3 +50,9 @@ Examples:
 
 ## Using full date-time strings
 `tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"`
+
+## Apache-style timestamps with explicit format and regex
+`tfind --timestamp-format="%d/%b/%Y:%H:%M:%S %z" --timestamp-regex="\\[([^\\]]+)\\]" access.log "31/Aug/1995:20:00:00 -0400" "31/Aug/1995:23:58:08 -0400"`
+
+## Unsorted logs (skip binary-search start)
+`tfind --input-order=unsorted app.log "2025-08-08 13:23:00" "2025-08-08 13:23:30"`
