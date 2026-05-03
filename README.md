@@ -54,7 +54,4 @@ tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"
 
 # Apache-style timestamps with explicit format and regex
 tfind --timestamp-format="%d/%b/%Y:%H:%M:%S %z" --timestamp-regex="\[([^\]]+)\]" access.log "31/Aug/1995:20:00:00 -0400" "31/Aug/1995:23:58:08 -0400"
-
-# Unsorted logs (skip binary-search start)
-tfind --input-order=unsorted app.log "2025-08-08 13:23:00" "2025-08-08 13:23:30"
 ```
