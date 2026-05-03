@@ -37,22 +37,24 @@ Options:
 
 - `--timestamp-format=FMT` - force parsing with a Python `strptime` format
 - `--timestamp-regex=REGEX` - force extraction using a regex with at least one capture group
-- `--timezone=TZ` - default timezone for naive timestamps (`UTC`, `Z`, `+HH:MM`, `-HHMM`)
+- `--timezone=TZ` - default timezone for naive timestamps (`UTC`, `Z`, `+HH:MM`, `+HHMM`, `-HH:MM`, `-HHMM`)
 - `--input-order=...` - `auto`/`sorted` uses binary-search start, `unsorted` scans from beginning
 
-Examples:
+## Examples
 
-## Find all log lines between 13:23:00.000 and 13:23:30.000
-`tfind app.log 13:23:00.000 13:23:30.000`
+```bash
+# Find all log lines between 13:23:00.000 and 13:23:30.000
+tfind app.log 13:23:00.000 13:23:30.000
 
-## Same, but color the timestamps in yellow
-`tfind -r=yellow app.log 13:23:00.000 13:23:30.000`
+# Same, but color the timestamps in yellow
+tfind --readability=yellow app.log 13:23:00.000 13:23:30.000
 
-## Using full date-time strings
-`tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"`
+# Using full date-time strings
+tfind app.log "2025-08-08 13:23:00.000" "2025-08-08 13:23:30.000"
 
-## Apache-style timestamps with explicit format and regex
-`tfind --timestamp-format="%d/%b/%Y:%H:%M:%S %z" --timestamp-regex="\\[([^\\]]+)\\]" access.log "31/Aug/1995:20:00:00 -0400" "31/Aug/1995:23:58:08 -0400"`
+# Apache-style timestamps with explicit format and regex
+tfind --timestamp-format="%d/%b/%Y:%H:%M:%S %z" --timestamp-regex="\[([^\]]+)\]" access.log "31/Aug/1995:20:00:00 -0400" "31/Aug/1995:23:58:08 -0400"
 
-## Unsorted logs (skip binary-search start)
-`tfind --input-order=unsorted app.log "2025-08-08 13:23:00" "2025-08-08 13:23:30"`
+# Unsorted logs (skip binary-search start)
+tfind --input-order=unsorted app.log "2025-08-08 13:23:00" "2025-08-08 13:23:30"
+```
