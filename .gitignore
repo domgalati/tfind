@@ -2,6 +2,7 @@
 output
 generators/
 logs/
+build/
 __pycache__/
 *.egg-info/
 .venv/
